@@ -10,7 +10,8 @@ from app.config.constants import Constants
 MODELS = {
     "openai": "gpt-4o-mini",
     "anthropic": "claude-haiku-4-5-20251001",
-    # claude-haiku-4-5-20251001
+    "gemini": "gemini-2.0-flash",
+    "llama": "llama3.1-70b",
 }
 
 
@@ -42,16 +43,17 @@ async def test_provider(name: str, model: str):
         import json
         try:
             data = json.loads(chunk)
-            # OpenAI: choices[0].delta.content
             token = (
+                # OpenAI / Llama (OpenAI-compatible)
                 data.get("choices", [{}])[0].get("delta", {}).get("content")
-                # Anthropic: delta.text
+                # Anthropic
                 or data.get("delta", {}).get("text")
             )
             if token:
                 print(token, end="", flush=True)
         except (json.JSONDecodeError, KeyError):
-            pass
+            # Gemini yields pre-parsed text strings directly
+            print(chunk, end="", flush=True)
     print()
 
 

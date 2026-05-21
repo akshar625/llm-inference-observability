@@ -29,11 +29,13 @@ class HttpMethods(Enum):
     DELETE = "DELETE"
 
 
-SUPPORTED_PROVIDERS = ["openai", "anthropic"]
+SUPPORTED_PROVIDERS = ["openai", "anthropic", "gemini", "llama"]
 
 PROVIDER_MODELS = {
     "openai": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"],
     "anthropic": ["claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"],
+    "gemini": ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
+    "llama": ["llama3.1-70b", "llama3.1-8b"],
 }
 
 DEFAULT_TEMPERATURE = 0.7
