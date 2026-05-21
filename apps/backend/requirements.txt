@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+httpx
+sse-starlette
+aiokafka
+redis
+sqlalchemy
+psycopg2-binary
+pydantic
+pydantic-settings
+python-dotenv
