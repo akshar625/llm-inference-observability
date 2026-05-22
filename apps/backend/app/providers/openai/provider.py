@@ -1,12 +1,20 @@
-from typing import AsyncGenerator
+import json
+from typing import AsyncGenerator, Optional
 from app.config.constants import Constants, HttpMethods
 from app.providers.http_client import BaseLLMProvider
+from app.schemas.chat import StreamChunk
 
 
-class LlamaProvider(BaseLLMProvider):
+class OpenAIProvider(BaseLLMProvider):
+
+    MODELS = {
+        "gpt-4o":      {"max_tokens_default": 1024, "supports_streaming": True, "context_window": 128_000},
+        "gpt-4o-mini": {"max_tokens_default": 1024, "supports_streaming": True, "context_window": 128_000},
+        "gpt-4-turbo": {"max_tokens_default": 1024, "supports_streaming": True, "context_window": 128_000},
+    }
 
     def __init__(self, api_key: str, timeout: int = 30):
-        self.base_url = "https://api.llama-api.com"
+        self.base_url = "https://api.openai.com/v1"
         self.headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
@@ -51,19 +59,44 @@ class LlamaProvider(BaseLLMProvider):
 
         return response
 
-    async def stream(self, messages: list, model: str, temperature: float = 0.7, max_tokens: int = 1024) -> AsyncGenerator[str, None]:
+    async def stream(self, messages: list, model: str, temperature: float = 0.7, max_tokens: int = 1024) -> AsyncGenerator[StreamChunk, None]:
         url = f"{self.base_url}/chat/completions"
         payload = {
             "model": model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
-            "stream": True
+            "stream": True,
+            "stream_options": {"include_usage": True}
         }
 
         async for line in self.make_stream_request(url=url, payload_json=payload, headers=self.headers, timeout=self.timeout):
             if line.startswith("data: "):
-                data = line[len("data: "):]
-                if data.strip() == "[DONE]":
-                    break
-                yield data
+                chunk = self._normalize_chunk(line[len("data: "):])
+                if chunk:
+                    yield chunk
+
+    def _normalize_chunk(self, raw_line: str) -> Optional[StreamChunk]:
+        if raw_line.strip() == "[DONE]":
+            return StreamChunk(type="done")
+
+        try:
+            data = json.loads(raw_line)
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+        choice = (data.get("choices") or [{}])[0]
+        token = choice.get("delta", {}).get("content")
+
+        if token:
+            return StreamChunk(type="token", content=token)
+
+        if choice.get("finish_reason"):
+            usage = data.get("usage", {})
+            if usage:
+                return StreamChunk(type="metadata", metadata={
+                    "tokens_in": usage.get("prompt_tokens"),
+                    "tokens_out": usage.get("completion_tokens"),
+                })
+
+        return None

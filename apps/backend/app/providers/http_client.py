@@ -1,8 +1,11 @@
 import asyncio
 import httpx
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator
+from typing import AsyncGenerator, TYPE_CHECKING
 from app.config.constants import Constants, ErrorMessage, HttpMethods
+
+if TYPE_CHECKING:
+    from app.schemas.chat import StreamChunk
 
 
 class BaseLLMProvider(ABC):
@@ -174,10 +177,14 @@ class BaseLLMProvider(ABC):
             Constants.ACTION_STATUS: Constants.SUCCESS
         }
 
+    @property
+    def provider_name(self) -> str:
+        return self.__class__.__module__.split('.')[-2]
+
     @abstractmethod
     async def generate(self, messages: list, model: str, temperature: float, max_tokens: int) -> dict:
         ...
 
     @abstractmethod
-    async def stream(self, messages: list, model: str, temperature: float, max_tokens: int) -> AsyncGenerator[str, None]:
+    async def stream(self, messages: list, model: str, temperature: float, max_tokens: int) -> AsyncGenerator["StreamChunk", None]:
         ...
