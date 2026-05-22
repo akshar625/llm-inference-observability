@@ -8,10 +8,10 @@ from app.providers.provider_factory import get_provider
 from app.config.constants import Constants
 
 MODELS = {
-    "openai": "gpt-4o-mini",
     "anthropic": "claude-haiku-4-5-20251001",
     "gemini": "gemini-2.0-flash",
-    "llama": "llama3.1-70b",
+    # "openai": "gpt-4o-mini",
+    # "llama": "llama3.1-70b",
 }
 
 
@@ -27,8 +27,6 @@ async def test_provider(name: str, model: str):
 
     if resp[Constants.ACTION_STATUS] == Constants.SUCCESS:
         result = resp[Constants.ACTION_RESULT][Constants.RESPONSE]
-        print(result)
-        # generate -> {'content': 'Hi! How are you doing?', 'input_tokens': 15, 'output_tokens': 10, 'model': 'claude-haiku-4-5-20251001'}
         print(result["content"])
         print(f"         tokens: {result['input_tokens']} in / {result['output_tokens']} out")
     else:
@@ -40,21 +38,16 @@ async def test_provider(name: str, model: str):
         messages=[{"role": "user", "content": "Count from 1 to 5."}],
         model=model,
     ):
-        import json
-        try:
-            data = json.loads(chunk)
-            token = (
-                # OpenAI / Llama (OpenAI-compatible)
-                data.get("choices", [{}])[0].get("delta", {}).get("content")
-                # Anthropic
-                or data.get("delta", {}).get("text")
-            )
-            if token:
-                print(token, end="", flush=True)
-        except (json.JSONDecodeError, KeyError):
-            # Gemini yields pre-parsed text strings directly
-            print(chunk, end="", flush=True)
-    print()
+        if chunk.type == "token":
+            print(chunk.content, end="", flush=True)
+        elif chunk.type == "stream_start":
+            print(f"[stream_start: {chunk.metadata}]", flush=True)
+        elif chunk.type == "metadata":
+            print(f"\n[metadata: {chunk.metadata}]", end="", flush=True)
+        elif chunk.type == "done":
+            print("\n[done]")
+        elif chunk.type == "error":
+            print(f"\n[error: {chunk.error}]")
 
 
 async def main():
