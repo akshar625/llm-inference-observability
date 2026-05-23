@@ -91,9 +91,16 @@ class AnthropicProvider(BaseLLMProvider):
         if event_type == "message_delta":
             usage = data.get("usage", {})
             if usage:
-                return StreamChunk(type="metadata", metadata={"tokens_out": usage.get("output_tokens")})
+                return StreamChunk(type="metadata", metadata={"output_tokens": usage.get("output_tokens")})
 
         if event_type == "message_stop":
             return StreamChunk(type="done")
+        if event_type == "message_start":
+            usage = data.get("message", {}).get("usage", {})
+            if usage and usage.get("input_tokens") is not None:
+                return StreamChunk(
+                    type="metadata",
+                    metadata={"input_tokens": usage.get("input_tokens")},
+                )
 
         return None

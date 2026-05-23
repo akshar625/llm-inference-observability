@@ -9,9 +9,9 @@ class GeminiProvider(BaseLLMProvider):
 
     # Gemini auth is via query param (key=), not Authorization header.
     MODELS = {
-        "gemini-2.0-flash": {"max_tokens_default": 1024, "supports_streaming": True, "context_window": 1_000_000},
-        "gemini-1.5-pro":   {"max_tokens_default": 1024, "supports_streaming": True, "context_window": 2_000_000},
-        "gemini-1.5-flash": {"max_tokens_default": 1024, "supports_streaming": True, "context_window": 1_000_000},
+        "gemini-2.5-flash-preview-05-20": {"max_tokens_default": 1024, "supports_streaming": True, "context_window": 1_048_576},
+        "gemini-2.0-flash":               {"max_tokens_default": 1024, "supports_streaming": True, "context_window": 1_048_576},
+        "gemini-flash-latest":            {"max_tokens_default": 1024, "supports_streaming": True, "context_window": 1_048_576},
     }
 
     def __init__(self, api_key: str, timeout: int = 30):
@@ -87,16 +87,16 @@ class GeminiProvider(BaseLLMProvider):
                     usage = data.get("usageMetadata", {})
                     if usage:
                         yield StreamChunk(type="metadata", metadata={
-                            "tokens_in": usage.get("promptTokenCount"),
-                            "tokens_out": usage.get("candidatesTokenCount"),
+                            "input_tokens": usage.get("promptTokenCount"),
+                            "output_tokens": usage.get("candidatesTokenCount"),
                         })
                     yield StreamChunk(type="done")
             else:
                 usage = data.get("usageMetadata", {})
                 if usage:
                     yield StreamChunk(type="metadata", metadata={
-                        "tokens_in": usage.get("promptTokenCount"),
-                        "tokens_out": usage.get("candidatesTokenCount"),
+                        "input_tokens": usage.get("promptTokenCount"),
+                        "output_tokens": usage.get("candidatesTokenCount"),
                     })
 
     def _to_gemini_messages(self, messages: list) -> list:

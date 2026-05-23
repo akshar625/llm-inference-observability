@@ -95,8 +95,8 @@ class OpenAIProvider(BaseLLMProvider):
             usage = data.get("usage", {})
             if usage:
                 return StreamChunk(type="metadata", metadata={
-                    "tokens_in": usage.get("prompt_tokens"),
-                    "tokens_out": usage.get("completion_tokens"),
+                    "input_tokens": usage.get("prompt_tokens"),
+                    "output_tokens": usage.get("completion_tokens"),
                 })
 
         return None
