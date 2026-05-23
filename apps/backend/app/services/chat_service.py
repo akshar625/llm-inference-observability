@@ -37,6 +37,10 @@ class ChatService:
                 model=req.model,
                 max_tokens=req.max_tokens,
                 temperature=req.temperature,
+                log_context={
+                    "request_id": req.request_id,
+                    "conversation_id": req.conversation_id,
+                },
             ):
                 yield self._sse(chunk)
 
@@ -45,7 +49,6 @@ class ChatService:
                 type="cancelled",
                 metadata={"request_id": str(req.request_id), "reason": "user_requested"},
             ))
-            raise
         except Exception as e:
             yield self._sse(StreamChunk(type="error", error=str(e)))
         finally:
