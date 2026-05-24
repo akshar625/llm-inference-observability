@@ -1,196 +1,158 @@
 import { useState, useRef, useCallback } from "react"
 
-export interface Message {
-  role: "user" | "assistant"
-  content: string
-}
+export type Message = { role: "user" | "assistant"; content: string }
 
-interface StreamChunk {
+type StreamChunk = {
   type: "stream_start" | "token" | "metadata" | "done" | "error" | "cancelled"
-  content?: string
-  error?: string
-  metadata?: Record<string, unknown>
+  content?: string | null
+  error?: string | null
+  metadata?: Record<string, unknown> | null
 }
 
-interface StreamingState {
-  messages: Message[]
-  isStreaming: boolean
-  error: string | null
-  currentRequestId: string | null
-  tokenMetadata: Record<string, unknown> | null
-}
-
-interface SendMessageOptions {
-  provider: string
-  model: string
-  userMessage: string
-}
-
-const BACKEND_URL = "http://localhost:8000"
+const API_BASE = "http://localhost:8000"
 
 export function useStreamingChat() {
-  const [state, setState] = useState<StreamingState>({
-    messages: [],
-    isStreaming: false,
-    error: null,
-    currentRequestId: null,
-    tokenMetadata: null,
-  })
+  const [messages, setMessages] = useState<Message[]>([])
+  const [conversationId, setConversationId] = useState<string | null>(null)
+  const [streaming, setStreaming] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [tokenMetadata, setTokenMetadata] = useState<Record<string, unknown> | null>(null)
 
-  const abortControllerRef = useRef<AbortController | null>(null)
+  const requestIdRef = useRef<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
-  const sendMessage = useCallback(async ({ provider, model, userMessage }: SendMessageOptions) => {
-    if (!userMessage.trim()) return
+  const send = useCallback(async (userMessage: string, provider: string, model: string) => {
+    const requestId = crypto.randomUUID()
+    requestIdRef.current = requestId
+    setError(null)
+    setTokenMetadata(null)
 
-    const userMsg: Message = { role: "user", content: userMessage }
-
-    // Optimistic UI: append user message + empty assistant placeholder
-    setState(prev => ({
+    setMessages(prev => [
       ...prev,
-      messages: [...prev.messages, userMsg, { role: "assistant", content: "" }],
-      isStreaming: true,
-      error: null,
-      tokenMetadata: null,
-    }))
-
-    const abortController = new AbortController()
-    abortControllerRef.current = abortController
-
-    const conversationMessages = [...state.messages, userMsg].map(m => ({
-      role: m.role,
-      content: m.content,
-    }))
+      { role: "user", content: userMessage },
+      { role: "assistant", content: "" },
+    ])
+    setStreaming(true)
+    abortRef.current = new AbortController()
 
     try {
-      const response = await fetch(`${BACKEND_URL}/chat/stream`, {
+      const response = await fetch(`${API_BASE}/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           provider,
           model,
-          messages: conversationMessages,
+          conversation_id: conversationId,
+          content: userMessage,
+          request_id: requestId,
         }),
-        signal: abortController.signal,
+        signal: abortRef.current.signal,
       })
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
+      if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`)
 
-      const reader = response.body!.getReader()
+      const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ""
-      let requestId: string | null = null
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-
         buffer += decoder.decode(value, { stream: true })
-
-        // SSE events are delimited by double newlines
         const events = buffer.split("\n\n")
-        buffer = events.pop() ?? "" // keep incomplete tail
+        buffer = events.pop() ?? ""
 
         for (const event of events) {
-          const dataLine = event.split("\n").find(l => l.startsWith("data: "))
-          if (!dataLine) continue
-
-          const jsonStr = dataLine.slice(6).trim()
-          if (!jsonStr) continue
-
+          const line = event.trim()
+          if (!line.startsWith("data: ")) continue
           let chunk: StreamChunk
           try {
-            chunk = JSON.parse(jsonStr)
+            chunk = JSON.parse(line.slice(6))
           } catch {
             continue
           }
 
-          if (chunk.type === "stream_start" && chunk.metadata) {
-            requestId = chunk.metadata.request_id as string
-            setState(prev => ({ ...prev, currentRequestId: requestId }))
+          if (chunk.type === "stream_start" && chunk.metadata?.conversation_id) {
+            setConversationId(chunk.metadata.conversation_id as string)
           } else if (chunk.type === "token" && chunk.content) {
-            setState(prev => {
-              const msgs = [...prev.messages]
-              const last = msgs[msgs.length - 1]
-              if (last?.role === "assistant") {
-                msgs[msgs.length - 1] = { ...last, content: last.content + chunk.content }
+            setMessages(prev => {
+              const updated = [...prev]
+              updated[updated.length - 1] = {
+                ...updated[updated.length - 1],
+                content: updated[updated.length - 1].content + chunk.content,
               }
-              return { ...prev, messages: msgs }
+              return updated
             })
-          } else if (chunk.type === "metadata") {
-            setState(prev => ({ ...prev, tokenMetadata: { ...prev.tokenMetadata, ...chunk.metadata } }))
-          } else if (chunk.type === "done") {
-            setState(prev => ({
-              ...prev,
-              isStreaming: false,
-              currentRequestId: null,
-            }))
+          } else if (chunk.type === "metadata" && chunk.metadata) {
+            setTokenMetadata(prev => ({ ...prev, ...chunk.metadata }))
           } else if (chunk.type === "error") {
-            setState(prev => ({
-              ...prev,
-              isStreaming: false,
-              error: chunk.error ?? "Unknown error",
-              currentRequestId: null,
-            }))
+            setError(chunk.error ?? "Unknown error")
           } else if (chunk.type === "cancelled") {
-            setState(prev => ({
-              ...prev,
-              isStreaming: false,
-              currentRequestId: null,
-              messages: prev.messages.map((m, i) =>
-                i === prev.messages.length - 1 && m.role === "assistant"
-                  ? { ...m, content: m.content + " [cancelled]" }
-                  : m
-              ),
-            }))
+            setMessages(prev => {
+              const updated = [...prev]
+              const last = updated[updated.length - 1]
+              updated[updated.length - 1] = {
+                ...last,
+                content: last.content + "\n\n_[generation cancelled]_",
+              }
+              return updated
+            })
           }
         }
       }
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") {
-        // Client aborted — server-side cancel was already requested via stopStreaming()
-        setState(prev => ({ ...prev, isStreaming: false, currentRequestId: null }))
-      } else {
-        const message = err instanceof Error ? err.message : "Stream failed"
-        setState(prev => ({
-          ...prev,
-          isStreaming: false,
-          error: message,
-          currentRequestId: null,
-        }))
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name !== "AbortError") {
+        setError(e.message ?? "Stream failed")
       }
     } finally {
-      abortControllerRef.current = null
+      setStreaming(false)
+      requestIdRef.current = null
+      abortRef.current = null
     }
-  }, [state.messages])
+  }, [conversationId])
 
-  const stopStreaming = useCallback(async () => {
-    const requestId = state.currentRequestId
+  const cancel = useCallback(async () => {
+    const requestId = requestIdRef.current
     if (!requestId) return
-
-    // Abort the fetch first (stops reading)
-    abortControllerRef.current?.abort()
-
-    // Tell the backend to cancel via Redis pub/sub
     try {
-      await fetch(`${BACKEND_URL}/chat/cancel/${requestId}`, { method: "POST" })
-    } catch {
-      // Best-effort — fetch abort already stops the local stream
-    }
-  }, [state.currentRequestId])
+      await fetch(`${API_BASE}/chat/cancel/${requestId}`, { method: "POST" })
+    } catch { /* best-effort */ }
+    abortRef.current?.abort()
+  }, [])
 
-  const clearMessages = useCallback(() => {
-    setState(prev => ({ ...prev, messages: [], error: null, tokenMetadata: null }))
+  const loadConversation = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/conversations/${id}/messages`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setMessages(data.messages.map((m: { role: string; content: string }) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })))
+      setConversationId(id)
+      setError(null)
+      setTokenMetadata(null)
+    } catch (e: unknown) {
+      setError(`Failed to load conversation: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }, [])
+
+  const newConversation = useCallback(() => {
+    setMessages([])
+    setConversationId(null)
+    setError(null)
+    setTokenMetadata(null)
   }, [])
 
   return {
-    messages: state.messages,
-    isStreaming: state.isStreaming,
-    error: state.error,
-    tokenMetadata: state.tokenMetadata,
-    sendMessage,
-    stopStreaming,
-    clearMessages,
+    messages,
+    conversationId,
+    streaming,
+    error,
+    tokenMetadata,
+    send,
+    cancel,
+    loadConversation,
+    newConversation,
   }
 }
