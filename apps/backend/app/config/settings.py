@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     LLAMA_API_KEY: str = ""
 
-    POSTGRES_URL: str = ""
+    DATABASE_URL: str = "postgresql+asyncpg://llm:llm_dev_password@localhost:5432/llm_observability"
 
     KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
 

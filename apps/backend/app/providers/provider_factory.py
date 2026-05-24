@@ -4,13 +4,15 @@ from app.providers.gemini import GeminiProvider
 from app.providers.llama import LlamaProvider
 
 from app.middleware.logging_provider import LoggingProvider
-from app.middleware.log_sink import CompositeSink, ConsoleSink, InMemorySink
+from app.middleware.log_sink import CompositeSink, ConsoleSink, InMemorySink, KafkaSink
 from app.config.settings import settings
 
-# Singleton sink — Phase 6: console + in-memory ring buffer.
-# Phase 7: swap to CompositeSink(ConsoleSink(), KafkaSink(...))
 in_memory_sink = InMemorySink()
-log_sink = CompositeSink(ConsoleSink(), in_memory_sink)
+kafka_sink = KafkaSink(
+    bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
+    topic="inference-events",
+)
+log_sink = CompositeSink(ConsoleSink(), in_memory_sink, kafka_sink)
 
 PROVIDER_MAP = {
     "openai":    lambda: OpenAIProvider(api_key=settings.OPENAI_API_KEY),
