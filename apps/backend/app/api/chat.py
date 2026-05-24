@@ -1,8 +1,10 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.database import get_session
 from app.schemas.chat import ChatStreamRequest
 from app.services.chat_service import chat_service
 from app.services.stream_manager import stream_manager
@@ -13,9 +15,9 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 @router.post("/stream")
-async def stream_chat(req: ChatStreamRequest):
+async def stream_chat(req: ChatStreamRequest, session: AsyncSession = Depends(get_session)):
     return StreamingResponse(
-        chat_service.stream_chat(req),
+        chat_service.stream_chat(req, session),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -27,18 +29,12 @@ async def stream_chat(req: ChatStreamRequest):
 
 @router.post("/cancel/{request_id}")
 async def cancel_stream(request_id: UUID):
-    """
-    Broadcast cancellation to all backend replicas via Redis pub/sub.
-    The replica owning the task cancels it; all others no-op silently.
-    Falls back to local-only cancel if Redis is unreachable.
-    """
     try:
         receivers = await redis_client.publish(CANCELLATION_CHANNEL, str(request_id))
         return {
             "status": "cancellation_requested",
             "scope": "broadcast",
-            "replicas_notified": receivers,
-        }
+            "replicas_notified": receivers}
     except Exception:
         cancelled = stream_manager.cancel(request_id)
         if cancelled:

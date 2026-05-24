@@ -11,7 +11,7 @@ class Message(BaseModel):
 class ChatStreamRequest(BaseModel):
     provider: Literal["openai", "anthropic", "gemini", "llama"]
     model: str
-    messages: list[Message]
+    content: str
     conversation_id: Optional[UUID] = None
     request_id: UUID = Field(default_factory=uuid4)
     max_tokens: Optional[int] = 1024
