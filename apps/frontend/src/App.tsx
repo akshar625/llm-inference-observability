@@ -2,25 +2,14 @@ import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select"
+import { ConversationSidebar } from "@/components/ConversationSidebar"
 import { useStreamingChat } from "@/hooks/useStreamingChat"
 
-const BACKEND_URL = "http://localhost:8000"
-
-interface ProviderModel {
-  id: string
-  name: string
-  context_window: number
-  max_tokens_default: number
-  supports_streaming: boolean
-}
-
-interface Provider {
-  id: string
-  name: string
-  models: ProviderModel[]
-}
-
+interface ProviderModel { id: string; name: string }
+interface Provider { id: string; name: string; models: ProviderModel[] }
 interface BackendConfig {
   providers: Provider[]
   defaults: { temperature: number; max_tokens: number }
@@ -31,13 +20,23 @@ export default function App() {
   const [selectedProvider, setSelectedProvider] = useState<string>("")
   const [selectedModel, setSelectedModel] = useState<string>("")
   const [input, setInput] = useState("")
+  const [sidebarRefresh, setSidebarRefresh] = useState(0)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  const { messages, isStreaming, error, tokenMetadata, sendMessage, stopStreaming, clearMessages } =
-    useStreamingChat()
+  const {
+    messages,
+    conversationId,
+    streaming,
+    error,
+    tokenMetadata,
+    send,
+    cancel,
+    loadConversation,
+    newConversation,
+  } = useStreamingChat()
 
   useEffect(() => {
-    fetch(`${BACKEND_URL}/config`)
+    fetch("http://localhost:8000/config")
       .then(r => r.json())
       .then((data: BackendConfig) => {
         setConfig(data)
@@ -47,16 +46,22 @@ export default function App() {
           setSelectedModel(first.models[0]?.id ?? "")
         }
       })
-      .catch(() => {/* backend not up yet — user will see empty selects */})
+      .catch(() => {})
   }, [])
 
-  // Auto-scroll to bottom when messages update
+  // Refresh sidebar after each stream completes
+  useEffect(() => {
+    if (!streaming && conversationId) {
+      setSidebarRefresh(k => k + 1)
+    }
+  }, [streaming, conversationId])
+
+  // Auto-scroll to bottom on new content
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  const availableModels =
-    config?.providers.find(p => p.id === selectedProvider)?.models ?? []
+  const availableModels = config?.providers.find(p => p.id === selectedProvider)?.models ?? []
 
   const handleProviderChange = (value: string) => {
     setSelectedProvider(value)
@@ -65,27 +70,34 @@ export default function App() {
   }
 
   const handleSend = () => {
-    if (!input.trim() || isStreaming || !selectedProvider || !selectedModel) return
+    if (!input.trim() || streaming || !selectedProvider || !selectedModel) return
     const msg = input
     setInput("")
-    sendMessage({ provider: selectedProvider, model: selectedModel, userMessage: msg })
+    send(msg, selectedProvider, selectedModel)
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
+  const handleSelectConversation = (id: string) => {
+    if (id === conversationId) return
+    loadConversation(id)
+  }
+
+  const handleNewConversation = () => {
+    newConversation()
+    setSidebarRefresh(k => k + 1)
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground">
-      {/* Header */}
-      <header className="border-b px-6 py-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-base tracking-tight">LLM Inference Observatory</span>
-        </div>
-        <div className="flex items-center gap-3">
+    <div className="flex h-screen bg-background text-foreground">
+      <ConversationSidebar
+        currentConversationId={conversationId}
+        onSelectConversation={handleSelectConversation}
+        onNewConversation={handleNewConversation}
+        refreshKey={sidebarRefresh}
+      />
+
+      <main className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <header className="border-b px-4 py-3 flex items-center gap-3 shrink-0">
           {config ? (
             <>
               <Select value={selectedProvider} onValueChange={handleProviderChange}>
@@ -94,22 +106,18 @@ export default function App() {
                 </SelectTrigger>
                 <SelectContent>
                   {config.providers.map(p => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
               <Select value={selectedModel} onValueChange={setSelectedModel}>
-                <SelectTrigger className="w-44 h-8 text-xs">
+                <SelectTrigger className="w-52 h-8 text-xs">
                   <SelectValue placeholder="Model" />
                 </SelectTrigger>
                 <SelectContent>
                   {availableModels.map(m => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.name}
-                    </SelectItem>
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -117,90 +125,91 @@ export default function App() {
           ) : (
             <span className="text-xs text-muted-foreground">Connecting to backend…</span>
           )}
-          <Button variant="ghost" size="sm" className="text-xs" onClick={clearMessages}>
-            Clear
-          </Button>
-        </div>
-      </header>
 
-      {/* Message list */}
-      <ScrollArea className="flex-1 px-4">
-        <div className="max-w-3xl mx-auto py-6 space-y-4">
-          {messages.length === 0 && (
-            <div className="text-center text-muted-foreground text-sm mt-24">
-              Select a provider and model, then send a message.
+          {conversationId && (
+            <div className="ml-auto text-xs text-muted-foreground font-mono">
+              {conversationId.slice(0, 8)}
             </div>
           )}
+        </header>
 
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm whitespace-pre-wrap break-words ${
-                  msg.role === "user"
+        {/* Messages */}
+        <ScrollArea className="flex-1 px-4">
+          <div className="max-w-3xl mx-auto py-6 space-y-4">
+            {messages.length === 0 && !streaming && (
+              <div className="text-center text-muted-foreground text-sm mt-24">
+                Start a conversation
+              </div>
+            )}
+
+            {messages.map((m, i) => (
+              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm whitespace-pre-wrap break-words ${
+                  m.role === "user"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-foreground"
-                }`}
-              >
-                {msg.content}
-                {/* Blinking cursor while the last assistant message is still streaming */}
-                {msg.role === "assistant" && isStreaming && i === messages.length - 1 && (
-                  <span className="ml-0.5 inline-block w-0.5 h-3.5 bg-current animate-pulse" />
-                )}
+                }`}>
+                  {m.content}
+                  {m.role === "assistant" && streaming && i === messages.length - 1 && (
+                    <span className="ml-0.5 inline-block w-0.5 h-3.5 bg-current animate-pulse" />
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
 
-          {/* Token metadata badge */}
-          {tokenMetadata && (
-            <div className="flex justify-start">
-              <span className="text-xs text-muted-foreground bg-muted rounded px-2 py-1">
-                in: {String(tokenMetadata.input_tokens ?? "—")} &nbsp;|&nbsp; out:{" "}
-                {String(tokenMetadata.output_tokens ?? "—")}
-              </span>
-            </div>
-          )}
+            {tokenMetadata && (
+              <div className="flex justify-start">
+                <span className="text-xs text-muted-foreground bg-muted rounded px-2 py-1">
+                  in: {String(tokenMetadata.input_tokens ?? "—")} &nbsp;|&nbsp; out:{" "}
+                  {String(tokenMetadata.output_tokens ?? "—")}
+                </span>
+              </div>
+            )}
 
-          {error && (
-            <div className="text-xs text-destructive bg-destructive/10 rounded px-3 py-2">
-              {error}
-            </div>
-          )}
+            {error && (
+              <div className="text-xs text-destructive bg-destructive/10 rounded px-3 py-2">
+                {error}
+              </div>
+            )}
 
-          <div ref={bottomRef} />
+            <div ref={bottomRef} />
+          </div>
+        </ScrollArea>
+
+        {/* Input */}
+        <div className="border-t px-4 py-3 shrink-0">
+          <div className="max-w-3xl mx-auto flex gap-2 items-end">
+            <Textarea
+              className="resize-none min-h-[44px] max-h-40 text-sm"
+              placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSend()
+                }
+              }}
+              disabled={streaming}
+              rows={1}
+            />
+            {streaming ? (
+              <Button variant="destructive" size="sm" onClick={cancel} className="shrink-0 h-11">
+                Stop
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                onClick={handleSend}
+                disabled={!input.trim() || !selectedProvider || !selectedModel}
+                className="shrink-0 h-11"
+              >
+                Send
+              </Button>
+            )}
+          </div>
         </div>
-      </ScrollArea>
-
-      {/* Input area */}
-      <div className="border-t px-4 py-3 shrink-0">
-        <div className="max-w-3xl mx-auto flex gap-2 items-end">
-          <Textarea
-            className="resize-none min-h-[44px] max-h-40 text-sm"
-            placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isStreaming}
-            rows={1}
-          />
-          {isStreaming ? (
-            <Button variant="destructive" size="sm" onClick={stopStreaming} className="shrink-0 h-11">
-              Stop
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              onClick={handleSend}
-              disabled={!input.trim() || !selectedProvider || !selectedModel}
-              className="shrink-0 h-11"
-            >
-              Send
-            </Button>
-          )}
-        </div>
-      </div>
+      </main>
     </div>
   )
 }
