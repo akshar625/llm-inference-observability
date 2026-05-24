@@ -5,9 +5,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.chat import router as chat_router
+from app.api.conversations import router as conversations_router
 from app.api.meta import router as meta_router
 from app.api.debug import router as debug_router
 from app.services.cancellation_subscriber import run_cancellation_subscriber
+from app.providers.provider_factory import kafka_sink
 
 
 @asynccontextmanager
@@ -19,6 +21,7 @@ async def lifespan(app: FastAPI):
         await subscriber_task
     except asyncio.CancelledError:
         pass
+    await kafka_sink.close()
 
 
 app = FastAPI(title="LLM Inference Observability", version="0.1.0", lifespan=lifespan)
@@ -32,6 +35,7 @@ app.add_middleware(
 )
 
 app.include_router(chat_router)
+app.include_router(conversations_router)
 app.include_router(meta_router)
 app.include_router(debug_router)
 
