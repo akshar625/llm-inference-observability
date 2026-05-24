@@ -85,7 +85,9 @@ class StreamManager:
                 return []
             values = await redis_client.mget(keys)
             return [
-                {**json.loads(v), "request_id": k.split(":", 1)[1]}
+                {
+                    **json.loads(v), "request_id": k.split(":", 1)[1]
+                    }
                 for k, v in zip(keys, values)
                 if v
             ]

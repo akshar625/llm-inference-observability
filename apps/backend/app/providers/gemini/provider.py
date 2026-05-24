@@ -1,7 +1,7 @@
 import json
 from typing import AsyncGenerator
 from app.config.constants import Constants, HttpMethods
-from app.providers.http_client import BaseLLMProvider
+from app.providers.base_provider import BaseLLMProvider
 from app.schemas.chat import StreamChunk
 
 
@@ -15,6 +15,9 @@ class GeminiProvider(BaseLLMProvider):
     }
 
     def __init__(self, api_key: str, timeout: int = 30):
+        '''
+        API Doc: https://ai.google.dev/gemini-api/docs/interactions/streaming
+        '''
         self.base_url = "https://generativelanguage.googleapis.com/v1beta"
         self.api_key = api_key
         self.headers = {

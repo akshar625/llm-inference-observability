@@ -182,9 +182,41 @@ class BaseLLMProvider(ABC):
         return self.__class__.__module__.split('.')[-2]
 
     @abstractmethod
-    async def generate(self, messages: list, model: str, temperature: float, max_tokens: int) -> dict:
+    async def generate(
+        self,
+        messages: list,
+        model: str,
+        temperature: float = 0.7,
+        max_tokens: int = 1024,
+    ) -> dict:
+        """
+        Generate a complete response from the provider.
+
+        Returns:
+            dict with keys:
+            - 'content': str — the generated text
+            - 'input_tokens': int
+            - 'output_tokens': int
+            - 'model': str
+            - (optional) 'finish_reason': str
+        """
         ...
 
     @abstractmethod
-    async def stream(self, messages: list, model: str, temperature: float, max_tokens: int) -> AsyncGenerator["StreamChunk", None]:
+    async def stream(
+        self,
+        messages: list,
+        model: str,
+        temperature: float = 0.7,
+        max_tokens: int = 1024,
+    ) -> AsyncGenerator["StreamChunk", None]:
+        """
+        Stream a response from the provider as StreamChunk events.
+
+        Yields StreamChunk with types in order:
+            - 'token'    — content fragment, chunk.content is the text
+            - 'metadata' — token counts, chunk.metadata has input_tokens / output_tokens
+            - 'done'     — stream complete, no further chunks
+            - 'error'    — unrecoverable error, chunk.error has the message
+        """
         ...

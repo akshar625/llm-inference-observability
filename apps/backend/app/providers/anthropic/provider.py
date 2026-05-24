@@ -1,7 +1,7 @@
 import json
 from typing import AsyncGenerator, Optional
 from app.config.constants import Constants, HttpMethods
-from app.providers.http_client import BaseLLMProvider
+from app.providers.base_provider import BaseLLMProvider
 from app.schemas.chat import StreamChunk
 
 
@@ -14,6 +14,10 @@ class AnthropicProvider(BaseLLMProvider):
     }
 
     def __init__(self, api_key: str, timeout: int = 30, anthropic_version: str = "2023-06-01"):
+        '''
+        API Doc: https://platform.claude.com/docs/en/build-with-claude/streaming
+        '''
+        
         self.base_url = "https://api.anthropic.com/v1"
         self.headers = {
             "x-api-key": api_key,

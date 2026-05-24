@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from app.middleware.log_sink import LogSink
 from app.schemas.chat import StreamChunk
-from app.schemas.log_event import LogEvent
+from shared import LogEvent
 
 
 class LoggingProvider:

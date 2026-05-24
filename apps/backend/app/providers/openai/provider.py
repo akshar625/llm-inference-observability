@@ -1,7 +1,7 @@
 import json
 from typing import AsyncGenerator, Optional
 from app.config.constants import Constants, HttpMethods
-from app.providers.http_client import BaseLLMProvider
+from app.providers.base_provider import BaseLLMProvider
 from app.schemas.chat import StreamChunk
 
 
@@ -14,6 +14,9 @@ class OpenAIProvider(BaseLLMProvider):
     }
 
     def __init__(self, api_key: str, timeout: int = 30):
+        '''
+        API Doc: https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create
+        '''
         self.base_url = "https://api.openai.com/v1"
         self.headers = {
             "Authorization": f"Bearer {api_key}",
