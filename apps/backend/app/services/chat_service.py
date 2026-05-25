@@ -2,11 +2,13 @@ import asyncio
 import logging
 from typing import AsyncIterator
 
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.providers.provider_factory import get_provider
 from app.schemas.chat import ChatStreamRequest, StreamChunk
 from app.services.conversation_service import ConversationService
+from app.services.governance import GovernanceService
 from app.services.stream_manager import stream_manager
 
 logger = logging.getLogger(__name__)
@@ -19,6 +21,12 @@ class ChatService:
 
         conversation_id = await conv_service.ensure_conversation(req.conversation_id)
         llm_messages = await conv_service.build_llm_messages(conversation_id, req.content)
+
+        try:
+            await GovernanceService.check(llm_messages, conversation_id)
+        except HTTPException as e:
+            yield self._sse(StreamChunk(type="error", error=e.detail))
+            return
 
         await stream_manager.register(
             request_id=req.request_id,
@@ -42,6 +50,7 @@ class ChatService:
         ))
 
         assistant_buffer = ""
+        _interrupted = False
         try:
             async for chunk in provider.stream(
                 messages=llm_messages,
@@ -55,6 +64,7 @@ class ChatService:
                 yield self._sse(chunk)
 
         except asyncio.CancelledError:
+            _interrupted = True
             yield self._sse(StreamChunk(
                 type="cancelled",
                 metadata={"request_id": str(req.request_id)},
@@ -64,7 +74,11 @@ class ChatService:
         finally:
             try:
                 if assistant_buffer:
-                    await conv_service.persist_assistant_message(conversation_id, assistant_buffer)
+                    await conv_service.persist_assistant_message(
+                        conversation_id,
+                        assistant_buffer,
+                        status="interrupted" if _interrupted else "completed",
+                    )
                 await session.commit()
             except Exception as e:
                 logger.error("Failed to persist conversation state: %s", e)

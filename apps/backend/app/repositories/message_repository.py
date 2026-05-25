@@ -10,8 +10,8 @@ class MessageRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def append(self, conversation_id: UUID, role: str, content: str) -> Message:
-        msg = Message(conversation_id=conversation_id, role=role, content=content)
+    async def append(self, conversation_id: UUID, role: str, content: str, status: str = "completed") -> Message:
+        msg = Message(conversation_id=conversation_id, role=role, content=content, status=status)
         self.session.add(msg)
         await self.session.flush()
         return msg

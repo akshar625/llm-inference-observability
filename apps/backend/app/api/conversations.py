@@ -38,7 +38,7 @@ async def get_messages(conversation_id: UUID, session: AsyncSession = Depends(ge
     return {
         "conversation_id": str(conversation_id),
         "messages": [
-            {"role": m.role, "content": m.content, "created_at": m.created_at.isoformat()}
+            {"role": m.role, "content": m.content, "status": m.status, "created_at": m.created_at.isoformat()}
             for m in msgs
         ],
     }

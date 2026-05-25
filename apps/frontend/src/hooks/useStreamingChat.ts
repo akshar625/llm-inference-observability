@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react"
 
-export type Message = { role: "user" | "assistant"; content: string }
+export type Message = { role: "user" | "assistant"; content: string; status?: "completed" | "interrupted" }
 
 type StreamChunk = {
   type: "stream_start" | "token" | "metadata" | "done" | "error" | "cancelled"
@@ -90,11 +90,7 @@ export function useStreamingChat() {
           } else if (chunk.type === "cancelled") {
             setMessages(prev => {
               const updated = [...prev]
-              const last = updated[updated.length - 1]
-              updated[updated.length - 1] = {
-                ...last,
-                content: last.content + "\n\n_[generation cancelled]_",
-              }
+              updated[updated.length - 1] = { ...updated[updated.length - 1], status: "interrupted" }
               return updated
             })
           }
@@ -125,9 +121,10 @@ export function useStreamingChat() {
       const res = await fetch(`${API_BASE}/conversations/${id}/messages`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      setMessages(data.messages.map((m: { role: string; content: string }) => ({
+      setMessages(data.messages.map((m: { role: string; content: string; status?: string }) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
+        status: m.status as "completed" | "interrupted" | undefined,
       })))
       setConversationId(id)
       setError(null)

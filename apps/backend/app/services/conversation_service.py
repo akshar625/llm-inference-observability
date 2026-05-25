@@ -39,8 +39,8 @@ class ConversationService:
         llm_messages.append({"role": "user", "content": new_user_content})
         return llm_messages
 
-    async def persist_assistant_message(self, conversation_id: UUID, content: str) -> None:
+    async def persist_assistant_message(self, conversation_id: UUID, content: str, status: str = "completed") -> None:
         if not content:
             return
-        await self.msg_repo.append(conversation_id, "assistant", content)
+        await self.msg_repo.append(conversation_id, "assistant", content, status=status)
         await self.conv_repo.touch(conversation_id)

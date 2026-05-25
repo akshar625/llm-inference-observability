@@ -140,7 +140,7 @@ export function ChatPage() {
             )}
 
             {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div key={i} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
                 <div className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm whitespace-pre-wrap break-words ${
                   m.role === "user"
                     ? "bg-primary text-primary-foreground"
@@ -151,6 +151,11 @@ export function ChatPage() {
                     <span className="ml-0.5 inline-block w-0.5 h-3.5 bg-current animate-pulse" />
                   )}
                 </div>
+                {m.role === "assistant" && m.status === "interrupted" && (
+                  <span className="mt-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                    Interrupted
+                  </span>
+                )}
               </div>
             ))}
 
