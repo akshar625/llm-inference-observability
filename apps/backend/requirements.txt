@@ -1,10 +1,12 @@
 fastapi
-uvicorn
+uvicorn[standard]
 httpx
 sse-starlette
 aiokafka
 redis
-sqlalchemy
+sqlalchemy[asyncio]
+asyncpg
+alembic
 psycopg2-binary
 pydantic
 pydantic-settings
