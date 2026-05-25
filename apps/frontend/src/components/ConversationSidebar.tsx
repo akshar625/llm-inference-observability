@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react"
+import { Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
@@ -36,6 +37,7 @@ export function ConversationSidebar({
 }: Props) {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
 
   const fetchConversations = useCallback(async () => {
     setLoading(true)
@@ -54,6 +56,20 @@ export function ConversationSidebar({
     fetchConversations()
   }, [fetchConversations, refreshKey])
 
+  const handleDelete = useCallback(async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    setDeleting(id)
+    try {
+      await fetch(`${API_BASE}/conversations/${id}`, { method: "DELETE" })
+      setConversations(prev => prev.filter(c => c.id !== id))
+      if (id === currentConversationId) onNewConversation()
+    } catch (err) {
+      console.error("Failed to delete conversation:", err)
+    } finally {
+      setDeleting(null)
+    }
+  }, [currentConversationId, onNewConversation])
+
   return (
     <aside className="w-64 border-r flex flex-col h-full shrink-0">
       <div className="p-4 border-b">
@@ -71,20 +87,32 @@ export function ConversationSidebar({
             <p className="text-xs text-muted-foreground px-2 py-3">No conversations yet</p>
           ) : (
             conversations.map(c => (
-              <button
+              <div
                 key={c.id}
-                onClick={() => onSelectConversation(c.id)}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm hover:bg-muted transition-colors ${
-                  c.id === currentConversationId ? "bg-muted font-medium" : ""
+                className={`group relative flex items-center rounded-md transition-colors ${
+                  c.id === currentConversationId ? "bg-muted" : "hover:bg-muted"
                 }`}
               >
-                <div className="truncate">
-                  {c.title ?? `Chat ${c.id.slice(0, 8)}`}
-                </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {formatTime(c.updated_at)}
-                </div>
-              </button>
+                <button
+                  onClick={() => onSelectConversation(c.id)}
+                  className="flex-1 text-left px-3 py-2 text-sm min-w-0"
+                >
+                  <div className="truncate font-medium">
+                    {c.title ?? `Chat ${c.id.slice(0, 8)}`}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {formatTime(c.updated_at)}
+                  </div>
+                </button>
+                <button
+                  onClick={e => handleDelete(e, c.id)}
+                  disabled={deleting === c.id}
+                  className="shrink-0 mr-1 p-1 rounded opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
+                  aria-label="Delete conversation"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
             ))
           )}
         </div>
