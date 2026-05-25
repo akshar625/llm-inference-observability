@@ -15,6 +15,7 @@ type Overview = {
   total_requests: number
   total_errors: number
   total_cancelled: number
+  total_blocked: number
   success_rate: number
   error_rate: number
   cancellation_rate: number
@@ -144,6 +145,7 @@ export function DashboardPage() {
             <StatCard label="Active streams" value={overview.active_streams.toString()} />
             <StatCard label="Errors" value={overview.total_errors.toString()} tone={overview.total_errors > 0 ? "destructive" : undefined} />
             <StatCard label="Cancelled" value={overview.total_cancelled.toString()} />
+            <StatCard label="Blocked" value={(overview.total_blocked ?? 0).toString()} tone={overview.total_blocked > 0 ? "destructive" : undefined} />
             <StatCard label="Tokens out" value={overview.total_tokens_out.toLocaleString()} />
           </div>
         )}

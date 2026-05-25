@@ -94,3 +94,4 @@ class AggregatedMetric(Base):
     total_tokens_in: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     total_tokens_out: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     total_cost_usd: Mapped[float] = mapped_column(Numeric(14, 8), nullable=False, default=0)
+    blocked_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

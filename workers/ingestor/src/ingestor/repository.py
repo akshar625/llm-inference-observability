@@ -95,25 +95,27 @@ class AggregatedMetricsRepository:
         )
         error_delta = 1 if event.status == "error" else 0
         cancelled_delta = 1 if event.status == "cancelled" else 0
+        blocked_delta = 1 if event.blocked else 0
 
         await self.conn.execute(
             """
             INSERT INTO aggregated_metrics (
                 hour_bucket, provider, model,
                 request_count, total_latency_ms,
-                error_count, cancelled_count,
+                error_count, cancelled_count, blocked_count,
                 total_tokens_in, total_tokens_out, total_cost_usd
             ) VALUES (
                 $1, $2, $3,
                 1, $4,
-                $5, $6,
-                $7, $8, $9
+                $5, $6, $7,
+                $8, $9, $10
             )
             ON CONFLICT (hour_bucket, provider, model) DO UPDATE SET
                 request_count    = aggregated_metrics.request_count + EXCLUDED.request_count,
                 total_latency_ms = aggregated_metrics.total_latency_ms + EXCLUDED.total_latency_ms,
                 error_count      = aggregated_metrics.error_count + EXCLUDED.error_count,
                 cancelled_count  = aggregated_metrics.cancelled_count + EXCLUDED.cancelled_count,
+                blocked_count    = aggregated_metrics.blocked_count + EXCLUDED.blocked_count,
                 total_tokens_in  = aggregated_metrics.total_tokens_in + EXCLUDED.total_tokens_in,
                 total_tokens_out = aggregated_metrics.total_tokens_out + EXCLUDED.total_tokens_out,
                 total_cost_usd   = aggregated_metrics.total_cost_usd + EXCLUDED.total_cost_usd
@@ -124,6 +126,7 @@ class AggregatedMetricsRepository:
             event.duration_ms or 0,
             error_delta,
             cancelled_delta,
+            blocked_delta,
             event.tokens_in or 0,
             event.tokens_out or 0,
             float(event.estimated_cost_usd or 0),

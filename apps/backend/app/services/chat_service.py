@@ -1,15 +1,16 @@
 import asyncio
 import logging
+import time
 from typing import AsyncIterator
 
-from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.providers.provider_factory import get_provider
+from app.providers.provider_factory import get_provider, log_sink
 from app.schemas.chat import ChatStreamRequest, StreamChunk
 from app.services.conversation_service import ConversationService
-from app.services.governance import GovernanceService
+from app.services.governance import GovernanceService, GovernanceViolation
 from app.services.stream_manager import stream_manager
+from shared import LogEvent
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,25 @@ class ChatService:
 
         try:
             await GovernanceService.check(llm_messages, conversation_id)
-        except HTTPException as e:
-            yield self._sse(StreamChunk(type="error", error=e.detail))
+        except GovernanceViolation as e:
+            now = time.time()
+            blocked_event = LogEvent(
+                request_id=req.request_id,
+                conversation_id=conversation_id,
+                provider=req.provider,
+                model=req.model,
+                started_at=now,
+                completed_at=now,
+                status="error",
+                streamed=False,
+                blocked=True,
+                block_reason=e.reason,
+                prompt_preview=req.content[:200],
+                error_message=e.message,
+            )
+            blocked_event.compute_derived()
+            await log_sink.emit(blocked_event)
+            yield self._sse(StreamChunk(type="error", error=e.message))
             return
 
         await stream_manager.register(
