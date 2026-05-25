@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingestor
+  namespace: lio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ingestor
+  template:
+    metadata:
+      labels:
+        app: ingestor
+    spec:
+      containers:
+        - name: ingestor
+          image: lio-ingestor:latest
+          imagePullPolicy: Never
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: llm-secrets
+                  key: POSTGRES_PASSWORD
+            - name: INGESTOR_DATABASE_URL
+              value: postgresql://llm:$(POSTGRES_PASSWORD)@postgres:5432/llm_observability
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: kafka:9092
