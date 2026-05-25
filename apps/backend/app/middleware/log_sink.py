@@ -93,7 +93,7 @@ class KafkaSink:
             logger.error("KafkaSink emit failed for %s: %s", event.event_id, e)
 
     async def close(self) -> None:
-        if self._producer is not None:
+        if self._producer:
             try:
                 await self._producer.stop()
             finally:
