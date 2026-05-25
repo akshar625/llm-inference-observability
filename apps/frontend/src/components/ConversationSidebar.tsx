@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
-const API_BASE = "http://localhost:8000"
+import { API_BASE } from "@/lib/api"
 
 type Conversation = {
   id: string
@@ -57,7 +57,7 @@ export function ConversationSidebar({
   return (
     <aside className="w-64 border-r flex flex-col h-full shrink-0">
       <div className="p-4 border-b">
-        <span className="font-semibold text-base tracking-tight block mb-3">Lio</span>
+        {/* <span className="font-semibold text-base tracking-tight block mb-3">Lio</span> */}
         <Button onClick={onNewConversation} className="w-full" variant="outline" size="sm">
           + New Conversation
         </Button>
