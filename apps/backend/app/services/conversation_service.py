@@ -30,6 +30,9 @@ class ConversationService:
     async def build_llm_messages(self, conversation_id: UUID, new_user_content: str) -> list[dict]:
         """Persists the new user message and returns the LLM-ready message list."""
         history = await self.msg_repo.history(conversation_id, HISTORY_WINDOW)
+        if not history:
+            title = new_user_content[:60] + ("…" if len(new_user_content) > 60 else "")
+            await self.conv_repo.set_title(conversation_id, title)
         llm_messages = [{"role": m.role, "content": m.content} for m in history]
         await self.msg_repo.append(conversation_id, "user", new_user_content)
         await self.conv_repo.touch(conversation_id)

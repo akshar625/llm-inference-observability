@@ -35,6 +35,12 @@ class ConversationRepository:
             .values(updated_at=datetime.now(timezone.utc))
         )
 
+    async def set_title(self, conversation_id: UUID, title: str) -> None:
+        await self.session.execute(
+            update(Conversation).where(Conversation.id == conversation_id)
+            .values(title=title)
+        )
+
     async def cancel(self, conversation_id: UUID) -> None:
         await self.session.execute(
             update(Conversation).where(Conversation.id == conversation_id).values(status="cancelled")
