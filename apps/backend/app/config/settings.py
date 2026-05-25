@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     MAX_INPUT_TOKENS: int = 8000
     MAX_ESTIMATED_COST: float = 2.0
+    RATE_LIMIT_RPM: int = 20
 
     class Config:
         env_file = ".env"
