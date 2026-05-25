@@ -1,3 +1,4 @@
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -20,6 +21,12 @@ from app.db.database import Base
 from app.db import models  # noqa: F401 — registers all model classes on Base.metadata
 
 target_metadata = Base.metadata
+
+_db_url = os.getenv(
+    "DATABASE_URL",
+    "postgresql+asyncpg://llm:llm_dev_password@localhost:5432/llm_observability",
+)
+config.set_main_option("sqlalchemy.url", _db_url.replace("+asyncpg", ""))
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

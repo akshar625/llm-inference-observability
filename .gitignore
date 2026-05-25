@@ -1,0 +1,25 @@
+# Environment / secrets
+.env
+*.env
+!*.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+dist/
+build/
+
+# Node
+node_modules/
+apps/frontend/dist/
+
+# K8s secrets
+deployments/k8s/secrets.yaml
+
+# macOS
+.DS_Store
