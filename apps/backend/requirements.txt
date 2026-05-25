@@ -5,6 +5,7 @@ sse-starlette
 aiokafka
 redis
 sqlalchemy[asyncio]
+greenlet
 asyncpg
 alembic
 psycopg2-binary
