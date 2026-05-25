@@ -23,7 +23,7 @@ class ConversationService:
             return conv.id
         existing = await self.conv_repo.get(conversation_id)
         if existing is None:
-            conv = await self.conv_repo.create()
+            conv = await self.conv_repo.create(conversation_id=conversation_id)
             return conv.id
         return existing.id
 

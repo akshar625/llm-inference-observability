@@ -107,7 +107,7 @@ export function ConversationSidebar({
                 <button
                   onClick={e => handleDelete(e, c.id)}
                   disabled={deleting === c.id}
-                  className="shrink-0 mr-1 p-1 rounded opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
+                  className="shrink-0 mr-1 p-1 rounded text-muted-foreground hover:text-destructive disabled:opacity-30"
                   aria-label="Delete conversation"
                 >
                   <Trash2 size={13} />
