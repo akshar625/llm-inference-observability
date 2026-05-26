@@ -64,6 +64,13 @@
       "name": "Google Gemini",
       "models": [
         {
+          "id": "gemini-flash-latest",
+          "name": "Gemini Flash Latest",
+          "context_window": 1048576,
+          "max_tokens_default": 1024,
+          "supports_streaming": true
+        },
+        {
           "id": "gemini-2.5-flash-preview-05-20",
           "name": "Gemini 2.5 Flash",
           "context_window": 1048576,
@@ -73,13 +80,6 @@
         {
           "id": "gemini-2.0-flash",
           "name": "Gemini 2.0 Flash",
-          "context_window": 1048576,
-          "max_tokens_default": 1024,
-          "supports_streaming": true
-        },
-        {
-          "id": "gemini-flash-latest",
-          "name": "Gemini Flash Latest",
           "context_window": 1048576,
           "max_tokens_default": 1024,
           "supports_streaming": true
