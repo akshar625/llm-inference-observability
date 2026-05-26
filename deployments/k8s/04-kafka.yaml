@@ -30,9 +30,8 @@ spec:
               value: CONTROLLER
             - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
               value: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-            # kafka-0.kafka resolves to the pod via the headless service
             - name: KAFKA_CONTROLLER_QUORUM_VOTERS
-              value: 1@kafka-0.kafka:9093
+              value: 1@localhost:9093
             - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
               value: "1"
             - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
@@ -43,13 +42,10 @@ spec:
             - containerPort: 9092
             - containerPort: 9093
           readinessProbe:
-            exec:
-              command:
-                - sh
-                - -c
-                - /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1
+            tcpSocket:
+              port: 9092
             initialDelaySeconds: 15
-            periodSeconds: 10
+            periodSeconds: 5
 ---
 # Headless service — gives kafka-0.kafka DNS for the quorum voter address
 apiVersion: v1
