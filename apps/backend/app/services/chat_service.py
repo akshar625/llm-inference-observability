@@ -5,6 +5,7 @@ from typing import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.database import async_session_maker
 from app.providers.provider_factory import get_provider, log_sink
 from app.schemas.chat import ChatStreamRequest, StreamChunk
 from app.services.conversation_service import ConversationService
@@ -22,6 +23,7 @@ class ChatService:
 
         conversation_id = await conv_service.ensure_conversation(req.conversation_id)
         llm_messages = await conv_service.build_llm_messages(conversation_id, req.content)
+        await session.commit()  # persist user message before stream; survives any cancel path
 
         try:
             await GovernanceService.check(llm_messages, conversation_id)
@@ -42,6 +44,7 @@ class ChatService:
                 error_message=e.message,
             )
             blocked_event.compute_derived()
+            await session.commit()  # ensure conversation row exists before ingestor FK insert
             await log_sink.emit(blocked_event)
             yield self._sse(StreamChunk(type="error", error=e.message))
             return
@@ -57,19 +60,44 @@ class ChatService:
         if current_task:
             stream_manager.register_task(req.request_id, current_task)
 
-        yield self._sse(StreamChunk(
-            type="stream_start",
-            metadata={
-                "request_id": str(req.request_id),
-                "conversation_id": str(conversation_id),
-                "provider": req.provider,
-                "model": req.model,
-            },
-        ))
-
+        started_at = time.time()  # used as created_at for the assistant message (preserves ordering)
         assistant_buffer = ""
-        _interrupted = False
+
+        async def _finalize(interrupted: bool, buf: str) -> None:
+            logger.info(
+                "_finalize: conv=%s buf_len=%d interrupted=%s",
+                conversation_id, len(buf), interrupted,
+            )
+            async with async_session_maker() as s:
+                try:
+                    if buf or interrupted:
+                        svc = ConversationService(s)
+                        await svc.persist_assistant_message(
+                            conversation_id,
+                            buf,
+                            status="interrupted" if interrupted else "completed",
+                            started_at=started_at,
+                        )
+                    await s.commit()
+                    logger.info("_finalize: commit OK for conv=%s", conversation_id)
+                except Exception as exc:
+                    logger.error("_finalize: persist failed: %s", exc)
+                    try:
+                        await s.rollback()
+                    except Exception:
+                        pass
+
         try:
+            yield self._sse(StreamChunk(
+                type="stream_start",
+                metadata={
+                    "request_id": str(req.request_id),
+                    "conversation_id": str(conversation_id),
+                    "provider": req.provider,
+                    "model": req.model,
+                },
+            ))
+
             async for chunk in provider.stream(
                 messages=llm_messages,
                 model=req.model,
@@ -81,8 +109,10 @@ class ChatService:
                     assistant_buffer += chunk.content
                 yield self._sse(chunk)
 
+            asyncio.ensure_future(_finalize(False, assistant_buffer))
+
         except asyncio.CancelledError:
-            _interrupted = True
+            asyncio.ensure_future(_finalize(True, assistant_buffer))
             yield self._sse(StreamChunk(
                 type="cancelled",
                 metadata={"request_id": str(req.request_id)},
@@ -90,20 +120,6 @@ class ChatService:
         except Exception as e:
             yield self._sse(StreamChunk(type="error", error=str(e)))
         finally:
-            try:
-                if assistant_buffer:
-                    await conv_service.persist_assistant_message(
-                        conversation_id,
-                        assistant_buffer,
-                        status="interrupted" if _interrupted else "completed",
-                    )
-                await session.commit()
-            except Exception as e:
-                logger.error("Failed to persist conversation state: %s", e)
-                try:
-                    await session.rollback()
-                except Exception:
-                    pass
             await stream_manager.unregister(req.request_id)
 
     def _sse(self, chunk: StreamChunk) -> str:

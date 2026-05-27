@@ -124,11 +124,6 @@ export function ChatPage() {
             <span className="text-xs text-muted-foreground">Connecting to backend…</span>
           )}
 
-          {conversationId && (
-            <div className="ml-auto text-xs text-muted-foreground font-mono">
-              {conversationId.slice(0, 8)}
-            </div>
-          )}
         </header>
 
         <ScrollArea className="flex-1 px-4">

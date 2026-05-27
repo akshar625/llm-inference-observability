@@ -75,6 +75,7 @@ class LoggingProvider:
         except asyncio.CancelledError:
             event.completed_at = time.time()
             event.status = "cancelled"
+            raise
         except Exception as e:
             event.completed_at = time.time()
             event.status = "error"

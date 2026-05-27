@@ -49,7 +49,16 @@ async def run():
         CostCalculatorEnricher(),
     ])
 
-    await consumer.start()
+    for attempt in range(1, 13):
+        try:
+            await consumer.start()
+            break
+        except Exception as e:
+            wait = min(5 * attempt, 30)
+            logger.warning("Kafka not ready (attempt %d/12): %s — retrying in %ds", attempt, e, wait)
+            await asyncio.sleep(wait)
+    else:
+        raise RuntimeError(f"Could not connect to Kafka at {BOOTSTRAP_SERVERS} after 12 attempts")
     logger.info("Consuming '%s' from %s (group=%s)", TOPIC, BOOTSTRAP_SERVERS, GROUP_ID)
 
     try:

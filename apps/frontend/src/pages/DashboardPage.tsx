@@ -107,10 +107,10 @@ export function DashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [window])
 
-  const fmtTime = (ts: string) =>
-    new Date(ts).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
-  const fmtHour = (ts: string) =>
-    new Date(ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+  const fmtTime = (ts: unknown) =>
+    new Date(ts as string).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+  const fmtHour = (ts: unknown) =>
+    new Date(ts as string).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
 
   return (
     <ScrollArea className="flex-1">
@@ -213,7 +213,7 @@ export function DashboardPage() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="timestamp" tickFormatter={fmtHour} fontSize={11} />
               <YAxis fontSize={11} tickFormatter={(v: number) => `$${v.toFixed(4)}`} />
-              <Tooltip labelFormatter={fmtTime} formatter={(v: number) => `$${v.toFixed(6)}`} />
+              <Tooltip labelFormatter={fmtTime} formatter={(v: unknown) => `$${(v as number).toFixed(6)}`} />
               <Line type="monotone" dataKey="total_cost_usd" stroke="#f59e0b" strokeWidth={2} dot={false} />
             </LineChart>
           </ChartCard>

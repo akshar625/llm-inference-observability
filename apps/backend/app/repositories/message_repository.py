@@ -1,3 +1,5 @@
+from datetime import datetime
+from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import select
@@ -10,8 +12,18 @@ class MessageRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def append(self, conversation_id: UUID, role: str, content: str, status: str = "completed") -> Message:
-        msg = Message(conversation_id=conversation_id, role=role, content=content, status=status)
+    async def append(
+        self,
+        conversation_id: UUID,
+        role: str,
+        content: str,
+        status: str = "completed",
+        created_at: Optional[datetime] = None,
+    ) -> Message:
+        kwargs: dict = dict(conversation_id=conversation_id, role=role, content=content, status=status)
+        if created_at is not None:
+            kwargs["created_at"] = created_at
+        msg = Message(**kwargs)
         self.session.add(msg)
         await self.session.flush()
         return msg

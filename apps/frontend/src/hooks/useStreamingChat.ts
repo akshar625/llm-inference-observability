@@ -110,6 +110,16 @@ export function useStreamingChat() {
   const cancel = useCallback(async () => {
     const requestId = requestIdRef.current
     if (!requestId) return
+    // Mark the in-progress message interrupted immediately — the abort closes
+    // the connection before the server's `cancelled` SSE event can arrive.
+    setMessages(prev => {
+      const updated = [...prev]
+      const last = updated[updated.length - 1]
+      if (last?.role === "assistant") {
+        updated[updated.length - 1] = { ...last, status: "interrupted" }
+      }
+      return updated
+    })
     try {
       await fetch(`${API_BASE}/chat/cancel/${requestId}`, { method: "POST" })
     } catch { /* best-effort */ }

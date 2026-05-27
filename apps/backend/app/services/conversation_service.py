@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -31,7 +32,7 @@ class ConversationService:
         """Persists the new user message and returns the LLM-ready message list."""
         history = await self.msg_repo.history(conversation_id, HISTORY_WINDOW)
         if not history:
-            title = new_user_content[:60] + ("…" if len(new_user_content) > 60 else "")
+            title = new_user_content[:28] + ("…" if len(new_user_content) > 28 else "")
             await self.conv_repo.set_title(conversation_id, title)
         llm_messages = [{"role": m.role, "content": m.content} for m in history]
         await self.msg_repo.append(conversation_id, "user", new_user_content)
@@ -39,8 +40,15 @@ class ConversationService:
         llm_messages.append({"role": "user", "content": new_user_content})
         return llm_messages
 
-    async def persist_assistant_message(self, conversation_id: UUID, content: str, status: str = "completed") -> None:
-        if not content:
+    async def persist_assistant_message(
+        self,
+        conversation_id: UUID,
+        content: str,
+        status: str = "completed",
+        started_at: Optional[float] = None,
+    ) -> None:
+        if not content and status != "interrupted":
             return
-        await self.msg_repo.append(conversation_id, "assistant", content, status=status)
+        created_at = datetime.fromtimestamp(started_at, tz=timezone.utc) if started_at else None
+        await self.msg_repo.append(conversation_id, "assistant", content, status=status, created_at=created_at)
         await self.conv_repo.touch(conversation_id)

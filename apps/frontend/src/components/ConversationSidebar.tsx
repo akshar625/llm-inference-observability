@@ -89,16 +89,16 @@ export function ConversationSidebar({
             conversations.map(c => (
               <div
                 key={c.id}
-                className={`group relative flex items-center rounded-md transition-colors ${
+                className={`relative rounded-md transition-colors ${
                   c.id === currentConversationId ? "bg-muted" : "hover:bg-muted"
                 }`}
               >
                 <button
                   onClick={() => onSelectConversation(c.id)}
-                  className="flex-1 text-left px-3 py-2 text-sm min-w-0"
+                  className="w-full text-left px-3 py-2 pr-8 text-sm"
                 >
                   <div className="truncate font-medium">
-                    {c.title ?? `Chat ${c.id.slice(0, 8)}`}
+                    {(c.title ?? `Chat ${c.id.slice(0, 8)}`).slice(0, 28)}
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {formatTime(c.updated_at)}
@@ -107,7 +107,7 @@ export function ConversationSidebar({
                 <button
                   onClick={e => handleDelete(e, c.id)}
                   disabled={deleting === c.id}
-                  className="shrink-0 mr-1 p-1 rounded text-muted-foreground hover:text-destructive disabled:opacity-30"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded text-muted-foreground hover:text-destructive disabled:opacity-30"
                   aria-label="Delete conversation"
                 >
                   <Trash2 size={13} />
