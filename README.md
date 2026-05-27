@@ -36,7 +36,7 @@ Migrations run automatically on backend start. The Kafka topic auto-creates on f
 
 ## Demo
 
-https://github.com/akshar625/llm-inference-observability/assets/...
+https://github.com/user-attachments/assets/a627c3ec-24fb-4e55-a87e-24a04b4f37cc
 
 **What the video shows:**
 1. Multi-provider SSE streaming with multi-turn history
