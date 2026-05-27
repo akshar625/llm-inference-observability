@@ -2,13 +2,13 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: llm_observability
-      POSTGRES_USER: llm
+      POSTGRES_DB: ${POSTGRES_DB:-llm_observability}
+      POSTGRES_USER: ${POSTGRES_USER:-llm}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-llm_dev_password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U llm -d llm_observability"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-llm} -d ${POSTGRES_DB:-llm_observability}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -48,9 +48,9 @@ services:
       context: .
       dockerfile: apps/backend/Dockerfile
     environment:
-      DATABASE_URL: postgresql+asyncpg://llm:${POSTGRES_PASSWORD:-llm_dev_password}@postgres:5432/llm_observability
-      REDIS_URL: redis://redis:6379
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-llm}:${POSTGRES_PASSWORD:-llm_dev_password}@postgres:5432/${POSTGRES_DB:-llm_observability}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
@@ -71,8 +71,8 @@ services:
       context: .
       dockerfile: workers/ingestor/Dockerfile
     environment:
-      INGESTOR_DATABASE_URL: postgresql://llm:${POSTGRES_PASSWORD:-llm_dev_password}@postgres:5432/llm_observability
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      INGESTOR_DATABASE_URL: postgresql://${POSTGRES_USER:-llm}:${POSTGRES_PASSWORD:-llm_dev_password}@postgres:5432/${POSTGRES_DB:-llm_observability}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
     depends_on:
       postgres:
         condition: service_healthy
@@ -85,7 +85,7 @@ services:
       context: .
       dockerfile: apps/frontend/Dockerfile
       args:
-        VITE_API_BASE: http://localhost:8000
+        VITE_API_BASE: ${VITE_API_BASE:-http://localhost:8000}
     ports:
       - "8080:80"
     depends_on:
