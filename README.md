@@ -34,13 +34,18 @@ Migrations run automatically on backend start. The Kafka topic auto-creates on f
 
 ---
 
-<!-- ## Demo
+## Demo
 
-> *Loom walkthrough — link goes here.*
+https://github.com/akshar625/llm-inference-observability/assets/...
 
-The five-minute version: chat with Anthropic Claude, cancel a stream mid-token, watch the message persist with an "Interrupted" badge. Open the dashboard, see the request show up with TTFT, cost, and token counts. Trip the rate limit, watch the blocked request appear in the dashboard with `blocked=true`. Scale the backend to 2 replicas (`docker compose up --scale backend=2`), cancel a stream from one terminal that hit the other replica, watch the cancellation propagate via Redis pub/sub.
+**What the video shows:**
+1. Multi-provider SSE streaming with multi-turn history
+2. Cancel mid-stream → amber "Interrupted" badge persists after page reload
+3. Dashboard — cost, tokens, TTFT, p50/p95/p99 latency percentiles, PII-redacted logs
+4. **Pattern C cross-pod cancellation** — cancel hits a different K8s pod than the one streaming; `replicas_notified: 2` confirms both pods got the Redis broadcast
+5. Governance — request 21 blocked by rate limit, blocked event visible in dashboard
 
---- -->
+---
 
 ## What it does
 
