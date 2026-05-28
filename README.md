@@ -15,6 +15,8 @@ cp .env.example .env          # paste a key for whichever provider you want to u
 docker compose up --build
 ```
 
+**Ports:** Frontend `8080`, Backend `8000`, Postgres `5432`, Redis `6379`, Kafka `9092`.
+
 Then open `http://localhost:8080`. Dashboard is at `/dashboard`.
 
 The `.env` file looks like this — paste a key for at least one provider, the rest can stay empty:
